@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "es2017"
+    ],
+    "checkJs": true,
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es3"
+  }
+}

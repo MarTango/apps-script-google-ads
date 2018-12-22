@@ -1,0 +1,11 @@
+{
+  "name": "apps-script-google-ads",
+  "version": "1.0.0",
+  "description": "* Apps Scripts Google Ads A small library for the Google Ads API (Beta) providing basic functionality.",
+  "main": "index.js",
+  "dependencies": {
+    "@types/google-apps-script": "*"
+  },
+  "devDependencies": {},
+  "author": "Martin Tang"
+}
