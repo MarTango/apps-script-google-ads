@@ -1,0 +1,54 @@
+* Apps Scripts Google Ads
+  
+** GoogleAdsClient
+
+  A thin wrapper for the Google Ads API (Beta) providing a single class
+  [[src/GoogleAdsClient.js][GoogleAdsClient]] as the entrypoint.
+
+** Notes
+   - If you want to use the adwords API in limited [[https://developers.google.com/apps-script/reference/script/auth-mode][AuthMode]]
+     (e.g. custom functions in spreadsheets) then you'll need to get
+     the access token using [[https://github.com/gsuitedevs/apps-script-oauth2][apps-script-oauth2]]. Otherwise, you need to
+     add "https://www.googleapis.com/auth/adwords" to the
+     "oauthScopes" property in the [[https://developers.google.com/apps-script/concepts/scopes#setting_explicit_scopes][manifest file]].
+   - Currently this only supports [[https://developers.google.com/google-ads/api/reference/rpc/google.ads.googleads.v0.services][services]] with get and mutate methods
+     (most of them).
+   - This has not been tested (nor used) very thoroughly.
+
+** Example usage
+   Copying the first campaign that appears in a search:
+
+   #+BEGIN_SRC javascript
+     var developerToken = "insert_developer_token";
+     var clientCustomerId = "insert_customer_id";
+
+     var client = new GoogleAdsClient(ScriptApp.getOAuthToken(), developerToken);
+     var gads = client.getService("GoogleAdsService");
+
+     var response = gads.search({
+       customerId: clientCustomerId,
+       query: "SELECT campaign.id, campaign.name FROM campaign WHERE campaign.status != 'REMOVED' LIMIT 1"
+     });
+     var campaign = response.results[0].campaign;
+
+     var service = client.getService('CampaignService');
+     campaign = service.getCampaign(clientCustomerId, campaign.id);
+     Logger.log(campaign);
+     
+     campaign.startDate = null;
+     campaign.endDate = null;
+     campaign.resourceName = null;
+     campaign.name = campaign.name + "_APPS_SCRIPT";
+
+     var mutateResponse = service.mutateCampaigns({
+       customerId: clientCustomerId,
+       operations: {
+         create: campaign
+       }
+     });
+     Logger.log(mutateResponse);
+   #+END_SRC
+
+** How to use
+   Provides classes for the GoogleAdsService and services with
+   get/mutate methods.
