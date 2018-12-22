@@ -20,6 +20,9 @@ var GoogleAdsClient = (function () {
      * @param {ServiceMetadata} serviceMeta
      */
     function serviceGenerator(serviceMeta) {
+      /**
+       * @param {GoogleAdsClient} client
+       */
       var cls = function(client) {
         this.client = client;
         this.endpoint = serviceMeta.endpoint;
@@ -31,7 +34,11 @@ var GoogleAdsClient = (function () {
       return cls;
     };
 
-    /** @type {ServiceMetadata[]} */
+    /**
+     * Currently contains only metadata for the GoogleAdsService.
+     *
+     * @type {ServiceMetadata[]}
+     */
     var SERVICES = [{
       name: 'GoogleAdsService',
       endpoint: 'customers/%s/googleAds',
@@ -61,6 +68,9 @@ var GoogleAdsClient = (function () {
 
   }(_serviceClasses));
 
+  /**
+   * Client with methods `getService`, `get` and `post`
+   */
   function GoogleAdsClient(accessToken, developerToken) {
     this.accessToken = accessToken || ScriptApp.getOAuthToken();
     this.developerToken = developerToken;
@@ -82,10 +92,17 @@ var GoogleAdsClient = (function () {
     return new cls(this);
   };
   
+  /**
+   * @param {string} resource
+   */
   GoogleAdsClient.prototype.get = function (resource) {
-    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'), {});
+    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'));
   };
   
+  /**
+   * @param {string} resource
+   * @param {Object} payload
+   */
   GoogleAdsClient.prototype.post = function (resource, payload) {
     if (typeof payload === 'object') {
       payload = JSON.stringify(payload);
@@ -101,20 +118,33 @@ var GoogleAdsClient = (function () {
    * guessing the endpoint based on service name
    * {/customers/customer_id/blahs}, and assuming the service has
    * methods "getBlah" and "mutateBlahs".
+   * @param {string} serviceName
+   * @return {Function}
    */
   function serviceFactory(serviceName) {
-    var name = serviceName.slice(0, -('Service'.length));
+    var name = serviceName.slice(0, -('Service'.length)); // e.g. "Campaign", "AdGroup", ..
     var endpoint = 'customers/%s/' + name[0].toLowerCase() + name.slice(1) + 's';
 
+    /**
+     * @param {GoogleAdsClient} client
+     */
     function ServiceClass(client) {
       this.client = client;
       this.endpoint = endpoint;
     }
 
+    /**
+     * @param {string} customerId
+     * @param {string} entityId
+     * @return {Object}
+     */
     ServiceClass.prototype['get' + name] = function (customerId, entityId) {
       return this.client.get(Utilities.formatString(this.endpoint, customerId) + '/' + entityId);
     };
 
+    /**
+     * @param {Object} request
+     */
     ServiceClass.prototype['mutate' + name + 's'] = function (request) {
       return this.client.post(
         Utilities.formatString(this.endpoint, request.customerId) + ':mutate',
@@ -124,6 +154,11 @@ var GoogleAdsClient = (function () {
     return ServiceClass;
   };
 
+  /**
+   * @param {string} url
+   * @param {Object=} params
+   * @return {Object}
+   */
   GoogleAdsClient.prototype._fetch = function (url, params) {
     var response = UrlFetchApp.fetch(url, this._prepareRequestOptions(params));
     if (response.getResponseCode() !== 200) {
@@ -133,6 +168,7 @@ var GoogleAdsClient = (function () {
   };
     
   /**
+   * @param {Object=} request
    * @return {GoogleAppsScript.URL_Fetch.URLFetchRequestOptions}
    */
   GoogleAdsClient.prototype._prepareRequestOptions = function (request) {
