@@ -1,44 +1,8 @@
 var GoogleAdsClient = (function () {
   var ENDPOINT = 'https://googleads.googleapis.com';
-  var APIVERSION = 'v0';
-  /** HashMap of [service name (string) -> class] */
-  var _serviceClasses = {};
+  var APIVERSION = 'v1';
 
-  /**
-   * Register the "GoogleAdsService" service into serviceClasses.
-   */
-  (function (scope) {
-    /**
-     * @typedef {Object} ServiceMetadata
-     * @prop {string} name
-     * @prop {string} endpoint
-     * @prop {Object[]} methods
-     */
-
-    /**
-     * Return class for service described by serviceMeta
-     * @param {ServiceMetadata} serviceMeta
-     */
-    function serviceGenerator(serviceMeta) {
-      /**
-       * @param {GoogleAdsClient} client
-       */
-      var cls = function(client) {
-        this.client = client;
-        this.endpoint = serviceMeta.endpoint;
-      };
-
-      Object.keys(serviceMeta.methods).forEach(function (methodName) {
-        cls.prototype[methodName] = serviceMeta.methods[methodName];
-      });
-      return cls;
-    };
-
-    /**
-     * Currently contains only metadata for the GoogleAdsService.
-     *
-     * @type {ServiceMetadata[]}
-     */
+  var _serviceClasses = (function generateServices() {
     var SERVICES = [{
       name: 'GoogleAdsService',
       endpoint: 'customers/%s/googleAds',
@@ -60,48 +24,86 @@ var GoogleAdsClient = (function () {
           );
         }
       }
+    }, {
+      name: 'CustomerService',
+      endpoint: 'customers',
+      methods: {
+        listAccessibleCustomers: function () {
+          return this.client.get(
+            this.endpoint + ':listAccessibleCustomers'
+          );
+        },
+        /**
+         * @param {String} resourceName
+         */
+        getCustomer: function (resourceName) {
+          return this.client.get(resourceName);
+        }
+
+      }
     }];
 
-    SERVICES.forEach(function (service) {
-      scope[service.name] = serviceGenerator(service);
-    });
+    /**
+     * @typedef {Object} Service
+     * @prop {GoogleAdsClient} client
+     */
+    var serviceGenerator = function (service) {
+      var cls = function(client) {
+        this.client = client;
+        this.endpoint = service.endpoint;
+      };
 
-  }(_serviceClasses));
+      Object.keys(service.methods).forEach(function (methodName) {
+        cls.prototype[methodName] = service.methods[methodName];
+      });
+      return cls;
+    };
+
+    return SERVICES.reduce(function (x, service) {
+      x[service] = serviceGenerator(service);
+      return x;
+    });
+  })();
 
   /**
-   * Client with methods `getService`, `get` and `post`
+   * @param {String} accessToken
+   * @param {String} developerToken
+   * @param {String} loginCustomerId
    */
-  function GoogleAdsClient(accessToken, developerToken) {
-    this.accessToken = accessToken || ScriptApp.getOAuthToken();
+  function GoogleAdsClient(
+    accessToken,
+    developerToken,
+    loginCustomerId
+  ) {
+    this.accessToken = accessToken;
     this.developerToken = developerToken;
+    this.loginCustomerId = loginCustomerId;
   }
 
   /**
-   * Check 
    * @param {string} serviceName
    */
   GoogleAdsClient.prototype.getService = function(serviceName) {
-    var Service = _serviceClasses[serviceName];
+    var ServiceClass = _serviceClasses[serviceName];
 
-    if (Service) {
-      return new Service(this);
+    if (!ServiceClass) {
+      ServiceClass = serviceFactory(serviceName);
+      _serviceClasses[serviceName] = ServiceClass;
     }
 
-    var cls = serviceFactory(serviceName);
-    _serviceClasses[serviceName] = cls;
-    return new cls(this);
+    return new ServiceClass(this);
   };
-  
+
   /**
-   * @param {string} resource
+   * @param {String} resource
    */
   GoogleAdsClient.prototype.get = function (resource) {
-    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'));
+    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'), {});
   };
-  
+
   /**
-   * @param {string} resource
-   * @param {Object} payload
+   * @param {String} resource
+   * @param {Object|String} payload
    */
   GoogleAdsClient.prototype.post = function (resource, payload) {
     if (typeof payload === 'object') {
@@ -114,15 +116,13 @@ var GoogleAdsClient = (function () {
   };
 
   /**
-   * Return a class for service `serviceName` {BlahService}, by
-   * guessing the endpoint based on service name
-   * {/customers/customer_id/blahs}, and assuming the service has
-   * methods "getBlah" and "mutateBlahs".
-   * @param {string} serviceName
-   * @return {Function}
+   * Return class for service `serviceName`, where service only
+   * contains "get" and "mutate" methods.
+   *
+   * @param {String} serviceName "AdGroupService", "CampaignService", ...
    */
   function serviceFactory(serviceName) {
-    var name = serviceName.slice(0, -('Service'.length)); // e.g. "Campaign", "AdGroup", ..
+    var name = serviceName.slice(0, -('Service'.length));
     var endpoint = 'customers/%s/' + name[0].toLowerCase() + name.slice(1) + 's';
 
     /**
@@ -134,16 +134,15 @@ var GoogleAdsClient = (function () {
     }
 
     /**
-     * @param {string} customerId
-     * @param {string} entityId
-     * @return {Object}
+     * @param {String} customerId
+     * @param {String} entityId
      */
     ServiceClass.prototype['get' + name] = function (customerId, entityId) {
       return this.client.get(Utilities.formatString(this.endpoint, customerId) + '/' + entityId);
     };
 
     /**
-     * @param {Object} request
+     * @param {Object<string, any>} request
      */
     ServiceClass.prototype['mutate' + name + 's'] = function (request) {
       return this.client.post(
@@ -155,9 +154,8 @@ var GoogleAdsClient = (function () {
   };
 
   /**
-   * @param {string} url
-   * @param {Object=} params
-   * @return {Object}
+   * @param {String} url
+   * @param {Object} params
    */
   GoogleAdsClient.prototype._fetch = function (url, params) {
     var response = UrlFetchApp.fetch(url, this._prepareRequestOptions(params));
@@ -166,17 +164,18 @@ var GoogleAdsClient = (function () {
     }
     return JSON.parse(response.getContentText());;
   };
-    
+
   /**
-   * @param {Object=} request
+   * @param {GoogleAppsScript.URL_Fetch.URLFetchRequestOptions} request
    * @return {GoogleAppsScript.URL_Fetch.URLFetchRequestOptions}
    */
   GoogleAdsClient.prototype._prepareRequestOptions = function (request) {
     request.headers = request.headers || {};
-    request.headers.Authorization = 'Bearer ' + this.accessToken;
+    request.headers['Authorization'] = 'Bearer ' + this.accessToken;
     request.headers['developer-token'] = this.developerToken;
+    request.headers['login-customer-id'] = this.loginCustomerId;
     request.headers['Content-Type'] = 'application/json';
-    request.headers.Accept = 'application/json';
+    request.headers['Accept'] = 'application/json';
     request.muteHttpExceptions = true;
     return request;
   };
