@@ -1,84 +1,45 @@
 var GoogleAdsClient = (function () {
   var ENDPOINT = 'https://googleads.googleapis.com';
-  var APIVERSION = 'v1';
-
-  var _serviceClasses = (function generateServices() {
-    var SERVICES = [{
-      name: 'GoogleAdsService',
-      endpoint: 'customers/%s/googleAds',
-      methods: {
-        search: function (request) {
-          var payload = {
-            query: request.query,
-          };
-          if (request.pageSize) {
-            payload.page_size = request.pageSize;
-          }
-          if (request.pageToken) {
-            payload.page_token = request.pageToken;
-          }
-
-          return this.client.post(
-            Utilities.formatString(this.endpoint + ':search', request.customerId),
-            payload
-          );
-        }
-      }
-    }, {
-      name: 'CustomerService',
-      endpoint: 'customers',
-      methods: {
-        listAccessibleCustomers: function () {
-          return this.client.get(
-            this.endpoint + ':listAccessibleCustomers'
-          );
-        },
-        /**
-         * @param {String} resourceName
-         */
-        getCustomer: function (resourceName) {
-          return this.client.get(resourceName);
-        }
-
-      }
-    }];
-
-    /**
-     * @typedef {Object} Service
-     * @prop {GoogleAdsClient} client
-     */
-    var serviceGenerator = function (service) {
-      var cls = function(client) {
-        this.client = client;
-        this.endpoint = service.endpoint;
-      };
-
-      Object.keys(service.methods).forEach(function (methodName) {
-        cls.prototype[methodName] = service.methods[methodName];
-      });
-      return cls;
-    };
-
-    return SERVICES.reduce(function (x, service) {
-      x[service] = serviceGenerator(service);
-      return x;
-    });
-  })();
+  var DEFAULT_API_VERSION = 'v1';
 
   /**
    * @param {String} accessToken
    * @param {String} developerToken
    * @param {String} loginCustomerId
+   * @param {String} version
    */
   function GoogleAdsClient(
     accessToken,
     developerToken,
-    loginCustomerId
+    loginCustomerId,
+    version
   ) {
     this.accessToken = accessToken;
     this.developerToken = developerToken;
     this.loginCustomerId = loginCustomerId;
+    this.version = version || DEFAULT_API_VERSION;
   }
+
+  /**
+   * @param {String} resource
+   */
+  GoogleAdsClient.prototype.get = function (resource) {
+    return this._fetch([ENDPOINT, this.version, resource].join('/'), {});
+  };
+
+  /**
+   * @param {String} resource
+   * @param {Object|String} payload
+   */
+  GoogleAdsClient.prototype.post = function (resource, payload) {
+    if (typeof payload === 'object') {
+      payload = JSON.stringify(payload);
+    }
+    return this._fetch([ENDPOINT, this.version, resource].join('/'), {
+      method: 'post',
+      payload: payload
+    });
+  };
 
   /**
    * @param {string} serviceName
@@ -94,26 +55,46 @@ var GoogleAdsClient = (function () {
     return new ServiceClass(this);
   };
 
-  /**
-   * @param {String} resource
-   */
-  GoogleAdsClient.prototype.get = function (resource) {
-    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'), {});
-  };
-
-  /**
-   * @param {String} resource
-   * @param {Object|String} payload
-   */
-  GoogleAdsClient.prototype.post = function (resource, payload) {
-    if (typeof payload === 'object') {
-      payload = JSON.stringify(payload);
+  var _serviceClasses = (function generateServices() {
+    /**
+     * @param {GoogleAdsClient} client
+     */
+    function GoogleAdsService(client) {
+      this.client = client;
+      this.endpoint = "customers/%s/googleAds";
     }
-    return this._fetch([ENDPOINT, APIVERSION, resource].join('/'), {
-      method: 'post',
-      payload: payload
-    });
-  };
+    GoogleAdsService.prototype.search = function (request) {
+      var payload = {
+        query: request.query,
+      };
+      if (request.pageSize) {
+        payload.page_size = request.pageSize;
+      }
+      if (request.pageToken) {
+        payload.page_token = request.pageToken;
+      }
+
+      return this.client.post(
+        Utilities.formatString(this.endpoint + ':search', request.customerId),
+        payload
+      );
+    };
+    /**
+     * @param {GoogleAdsClient} client
+     */
+    function CustomerService(client) {
+      this.client = client;
+      this.endpoint = "customers";
+      this.getCustomer = client.get;
+    }
+    CustomerService.prototype.listAccessibleCustomers = function () {
+      return this.client.get("customers:listAccessibleCustomers");
+    };
+    return {
+      GoogleAdsService: GoogleAdsService,
+      CustomerService: CustomerService
+    };
+  })();
 
   /**
    * Return class for service `serviceName`, where service only
@@ -173,7 +154,10 @@ var GoogleAdsClient = (function () {
     request.headers = request.headers || {};
     request.headers['Authorization'] = 'Bearer ' + this.accessToken;
     request.headers['developer-token'] = this.developerToken;
-    request.headers['login-customer-id'] = this.loginCustomerId;
+    if (this.loginCustomerId) {
+      request.headers['login-customer-id'] = this.loginCustomerId;
+    }
+
     request.headers['Content-Type'] = 'application/json';
     request.headers['Accept'] = 'application/json';
     request.muteHttpExceptions = true;
