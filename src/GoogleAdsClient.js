@@ -1,12 +1,18 @@
+/**
+ * @param {string} accessToken
+ * @param {string} developerToken
+ * @param {string} loginCustomerId
+ * @param {string=} version
+ */
 var GoogleAdsClient = (function () {
   var ENDPOINT = 'https://googleads.googleapis.com';
   var DEFAULT_API_VERSION = 'v1';
 
   /**
-   * @param {String} accessToken
-   * @param {String} developerToken
-   * @param {String} loginCustomerId
-   * @param {String} version
+   * @param {string} accessToken
+   * @param {string} developerToken
+   * @param {string} loginCustomerId
+   * @param {string=} version
    */
   function GoogleAdsClient(
     accessToken,
