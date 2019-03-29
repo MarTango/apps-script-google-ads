@@ -1,5 +1,5 @@
 * Apps Scripts Google Ads
-  
+
 ** GoogleAdsClient
 
   A thin wrapper for the Google Ads API (Beta) providing a single class
@@ -16,41 +16,85 @@
     - This has not been tested (nor used) very thoroughly.
 
 *** Example usage
-    Copying the first campaign that appears in a search:
 
-    #+BEGIN_SRC javascript
-      var developerToken = "insert_developer_token";
-      var clientCustomerId = "insert_customer_id";
+**** Copying the first campaign that appears in a search:
 
-      var client = new GoogleAdsClient(ScriptApp.getOAuthToken(), developerToken);
-      var gads = client.getService("GoogleAdsService");
+#+BEGIN_SRC javascript
+  var developerToken = "insert_developer_token";
+  var loginCustomerId = "insert_login_customer_id"
+  var clientCustomerId = "insert_customer_id";
 
-      var response = gads.search({
-        customerId: clientCustomerId,
-        query: "SELECT campaign.id, campaign.name FROM campaign WHERE campaign.status != 'REMOVED' LIMIT 1"
-      });
-      var campaign = response.results[0].campaign;
+  var client = new GoogleAdsClient(ScriptApp.getOAuthToken(), developerToken, loginCustomerId);
+  var gads = client.getService("GoogleAdsService");
 
-      var service = client.getService('CampaignService');
-      campaign = service.getCampaign(clientCustomerId, campaign.id);
-      Logger.log(campaign);
-     
-      campaign.startDate = null;
-      campaign.endDate = null;
-      campaign.resourceName = null;
-      campaign.name = campaign.name + "_APPS_SCRIPT";
+  var response = gads.search({
+    customerId: clientCustomerId,
+    query: "SELECT campaign.id, campaign.name FROM campaign WHERE campaign.status != 'REMOVED' LIMIT 1"
+  });
+  var campaign = response.results[0].campaign;
 
-      var mutateResponse = service.mutateCampaigns({
-        customerId: clientCustomerId,
-        operations: {
-          create: campaign
-        }
-      });
-      Logger.log(mutateResponse);
-    #+END_SRC
+  var service = client.getService('CampaignService');
+  campaign = service.getCampaign(clientCustomerId, campaign.id);
+  Logger.log(campaign);
+
+  campaign.startDate = null;
+  campaign.endDate = null;
+  campaign.resourceName = null;
+  campaign.name = campaign.name + "_APPS_SCRIPT";
+
+  var mutateResponse = service.mutateCampaigns({
+    customerId: clientCustomerId,
+    operations: {
+      create: campaign
+    }
+  });
+  Logger.log(mutateResponse);
+#+END_SRC
+
+**** Modifying a campaign's positive geo target type to "LOCATION_OF_PRESENCE"
+     #+begin_src javascript
+       function test() {
+         var client = new GoogleAdsClient(
+           ScriptApp.getOAuthToken(),
+           developerToken,
+           loginCustomerId
+         );
+
+         var s = client.getService("GoogleAdsService");
+
+         var result = s.search({
+           customerId: customerId,
+           query: "SELECT campaign.id, campaign.geo_target_type_setting.positive_geo_target_type"
+             + " FROM campaign WHERE campaign.name LIKE \"%martin%\""
+             + " AND campaign.status != REMOVED"
+             + " AND campaign.geo_target_type_setting.positive_geo_target_type = DONT_CARE"
+             + " LIMIT 1"
+         });
+
+         var campaign = result.results[0].campaign;
+
+         Logger.log(campaign);
+
+         campaign.geoTargetTypeSetting.positiveGeoTargetType = "LOCATION_OF_PRESENCE";
+
+         var campaignService = client.getService("CampaignService");
+
+         var resp = campaignService.mutateCampaigns({
+           customerId: customerId,
+           operations: [{
+             update: campaign,
+             updateMask:  "geoTargetTypeSetting.positiveGeoTargetType"
+           }]
+         });
+
+         Logger.log(resp.results[0].resourceName);
+
+       }
+
+     #+end_src
 
 *** How to use
-    1. Instantiate the client with an access token and adwords
-       developer token.
-    2. Use =client.getService()= to fetch an instance for a service
-       that gets/mutates (or the GoogleAdsService).
+1. Instantiate the client with an access token and adwords
+   developer token.
+2. Use =client.getService()= to fetch an instance for a service
+   that gets/mutates (or the GoogleAdsService).
