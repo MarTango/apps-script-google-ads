@@ -94,7 +94,10 @@
      #+end_src
 
 *** How to use
-1. Instantiate the client with an access token and adwords
-   developer token.
-2. Use =client.getService()= to fetch an instance for a service
-   that gets/mutates (or the GoogleAdsService).
+1. Instantiate the client with an access token, adwords developer
+   token and login customer ID (not required if using
+   =CustomerService=).
+2. Use =client.getService(serviceName)= to fetch an instance of that
+   service (currently supports =GoogleAdsService=, =CustomerService=,
+   and most ={entity}Service= s that contain =mutate{entity}s= and
+   =get{entity}= methods.
