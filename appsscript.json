@@ -6,18 +6,6 @@
     "https://www.googleapis.com/auth/script.container.ui"
   ],
   "exceptionLogging": "STACKDRIVER",
-  "webapp": {
-    "executeAs": "USER_DEPLOYING",
-    "access": "DOMAIN"
-  },
-  "dependencies": {
-    "libraries": [
-      {
-        "version": "26",
-        "libraryId": "1B7FSrk5Zi6L1rSxxTDgDEUsPzlukDsi4KGuTMorsTQHhGBzBkMun4iDF",
-        "userSymbol": "OAuth2"
-      }
-    ]
-  },
+  "dependencies": {},
   "timeZone": "Europe/London"
 }
