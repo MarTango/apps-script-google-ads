@@ -1,5 +1,9 @@
 * Apps Scripts Google Ads
 
+
+** Installation
+   Go to =Resources= > =Libraries= > =Add a Library= and paste in the
+   following project key: =MRDBj7vHnHOuhmWj8lguWIrgDLth4o_FN=
 ** GoogleAdsClient
   A thin wrapper for the Google Ads API (Beta) providing a single
   class [[src/GoogleAdsClient.js][GoogleAdsClient]] as the entrypoint.
